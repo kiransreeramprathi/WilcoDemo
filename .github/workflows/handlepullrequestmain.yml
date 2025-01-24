@@ -42,7 +42,7 @@ jobs:
       # Authenticate with Salesforce Org
       - name: Authenticate Salesforce Org
         run: |
-          echo "${{ secrets.KSHEERABDHIORGTOKEN }}" > sfdx-auth-url.txt
+          echo "${{ secrets.SFDX_AUTH_URL_PRODUCTION }}" > sfdx-auth-url.txt
           sf org login sfdx-url -f sfdx-auth-url.txt -s -a DI
       # Determine Commit Range
       - name: Determine Commit Range
