@@ -12,3 +12,4 @@ public class AccountControllerTest {
         insert acc;
        AccountController.getAllActiveAccounts();   
     }
+}
