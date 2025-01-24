@@ -1,0 +1,108 @@
+#Author : Kiran sreeram Prathi
+#Created Date : 05/08/2023
+#Updated Date : 05/08/2023
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - force-app/**
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2 # Fetch previous commit to determine the range
+
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.17.0
+
+      # Install Salesforce CLI
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      # Install oclif dependencies
+      - name: Install oclif dependencies
+        run: npm install --global oclif@latest
+
+      # Install sfdx-git-delta
+      - name: Install sfdx-git-delta
+        run: echo y | sfdx plugins:install sfdx-git-delta@latest
+
+      # Authenticate with Salesforce Org using SFDX Auth URL
+      - name: Authenticate Salesforce Org
+        run: |
+          echo "${{ secrets.KSHEERABDHIORGTOKEN }}" > sfdx-auth-url.txt
+          sf org login sfdx-url -f sfdx-auth-url.txt -s -a DI
+      # Determine Commit Range
+      - name: Determine Commit Range
+        id: git-info
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "base=$(jq -r .pull_request.base.sha < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+            echo "head=$(jq -r .pull_request.head.sha < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+          else
+            echo "base=$(git rev-parse HEAD^)" >> $GITHUB_ENV
+            echo "head=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          fi
+      # Generate Delta
+      - name: Get Delta Changes
+        run: |
+          echo "Using base commit: ${{ env.base }}"
+          echo "Using head commit: ${{ env.head }}"
+          sfdx sgd:source:delta --to ${{ env.head }} --from ${{ env.base }} --output . > delta_output.txt
+      # Display Package XML
+      - name: Display package.xml
+        run: cat package/package.xml
+
+      # Display destructiveChanges.xml
+      - name: Display destructiveChanges.xml
+        run: cat destructiveChanges/destructiveChanges.xml
+
+      # Detect Test Classes from Delta Changes (using sfdx-git-delta output)
+      - name: Detect Test Classes
+        id: detect-tests
+        run: |
+          echo "Package.xml content:"
+          cat package/package.xml
+          
+          # Improved test class detection
+          test_classes=$(grep -o '<members>.*Test</members>' package/package.xml | sed 's/<members>\(.*\)<\/members>/\1/')
+          
+          # Debug output
+          echo "Detected test classes: ${test_classes}"
+          
+          # Set output
+          echo "test_classes=${test_classes}" >> $GITHUB_OUTPUT
+
+      # Deploy Source Code
+      - name: Deploy Source Code
+        run: |
+          if [ -n "${{ steps.detect-tests.outputs.test_classes }}" ]; then
+            echo "Running specified tests: ${{ steps.detect-tests.outputs.test_classes }}"
+            sf project deploy start -x package/package.xml \
+              --post-destructive-changes destructiveChanges/destructiveChanges.xml \
+              -o DI \
+              -g \
+              -l RunSpecifiedTests \
+              --tests "${{ steps.detect-tests.outputs.test_classes }}" \
+              -w 60 --verbose
+          else
+            echo "No test classes found, running with RunLocalTests"
+            sf project deploy start -x package/package.xml \
+              --post-destructive-changes destructiveChanges/destructiveChanges.xml \
+              -o DI \
+              -g \
+              -l RunLocalTests \
+              -w 60 --verbose
+          fi

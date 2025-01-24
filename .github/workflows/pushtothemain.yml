@@ -1,0 +1,28 @@
+#Author : Kiran sreeram Prathi
+#Created Date : 05/08/2023
+#Updated Date : 05/08/2023
+name: Merge changes to main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  action-pull-request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run the Action
+        if: startsWith(github.ref, 'refs/heads/main') 
+        uses: devops-infra/action-pull-request@v0.4.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONALACCESSTOKEN }}
+        with:
+          github_token: ${{ secrets.PERSONALACCESSTOKEN }}
+          title: Automatic pull request
+          get_diff: true
