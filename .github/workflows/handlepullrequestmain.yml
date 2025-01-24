@@ -6,7 +6,7 @@ name: Validate PullRequest In Target Org
 on:
   pull_request:
     branches:
-      - main
+      - master
     paths:
       - force-app/**
 
