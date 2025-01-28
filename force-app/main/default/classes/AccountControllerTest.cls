@@ -10,8 +10,8 @@ public class AccountControllerTest {
         Account acc = new Account();
         acc.Name = 'Test Account';
         //acc.Active__c = 'Yes';
-        acc.CustomerPriority__c = 'High';
-        acc.Ext_Id__c = '123';
+        //acc.CustomerPriority__c = 'High';
+        //acc.Ext_Id__c = '123';
         insert acc;
        AccountController.getAllActiveAccounts();   
     }
